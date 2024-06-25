@@ -1,0 +1,23 @@
+{
+  "name": "blog-backend",
+  "version": "1.0.0",
+  "description": "a backend peoject for personal blog ",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "backend",
+    "blog",
+    "personal",
+    "fullstack"
+  ],
+  "author": "naim ak",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.4.3"
+  }
+}
