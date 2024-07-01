@@ -2,10 +2,9 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
-import nodermailer from "nodemailer";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose";
 import { sendVerificationEmail } from "../utils/verification.js";
+// import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const generateAccessAndRfreshToken = async (userId) => {
   try {
@@ -58,12 +57,24 @@ const registerUser = asyncHandler(async (req, res) => {
   if (existedUser) {
     throw new ApiError(400, "user with the email or username already exists");
   }
+  // const userPhotoLocalPath = req.files?.userPhoto[0]?.path;
+
+  // if (!avatarLocalPath) {
+  //   throw new ApiError(400, "Avatar file is required");
+  // }
+
+  // const userPhoto = await uploadOnCloudinary(userPhotoLocalPath);
+
+  // if (!userPhoto) {
+  //   throw new ApiError(400, "avater photo required");
+  // }
 
   const user = await User.create({
     fullname,
     email,
     username: username.toLowerCase(),
     password,
+    // userPhoto: userPhoto,
   });
 
   const { accessToken, refreshToken } = await generateAccessAndRfreshToken(

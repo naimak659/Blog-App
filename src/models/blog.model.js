@@ -6,7 +6,7 @@ const blogSchema = new Schema(
       type: String,
       required: true,
     },
-    publisherName: {
+    author: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -20,7 +20,7 @@ const blogSchema = new Schema(
     },
   },
   {
-    timestamps,
+    timestamps: true,
   }
 );
 

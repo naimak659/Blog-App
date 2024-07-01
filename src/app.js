@@ -19,7 +19,9 @@ app.get("/", (req, res) => {
 });
 
 import userRouter from "./routes/user.routes.js";
+import blogRouter from "./routes/blog.routes.js";
 
 app.use("/blogak", userRouter);
+app.use("/blog", blogRouter);
 
 export { app };

@@ -11,7 +11,7 @@ const userSchema = new Schema(
     },
     fullname: {
       type: String,
-      required: true
+      required: true,
     },
     email: {
       type: String,
@@ -84,7 +84,5 @@ userSchema.methods.generateRefreshToken = function () {
     }
   );
 };
-
-
 
 export const User = mongoose.model("User", userSchema);
