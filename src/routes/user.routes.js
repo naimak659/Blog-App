@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/Auth.js";
-// import { upload } from "../middlewares/multer.middleware.js";
+import { upload } from "../middlewares/multer.middleware.js";
 import {
   registerUser,
   userLogin,
@@ -15,12 +15,12 @@ import {
 const router = Router();
 
 router.route("/register").post(
-  // upload.fields([
-  //   {
-  //     name: userPhoto,
-  //     maxCount: 1,
-  //   },
-  // ]),
+  upload.fields([
+    {
+      maxCount: 1,
+      name: "userPhoto"
+    },
+  ]),
   registerUser
 );
 router.route("/verification").post(verifyJWT, verifyTheUser);

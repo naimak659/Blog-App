@@ -4,7 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import jwt from "jsonwebtoken";
 import { sendVerificationEmail } from "../utils/verification.js";
-// import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
 const generateAccessAndRfreshToken = async (userId) => {
   try {
@@ -25,26 +25,14 @@ const generateAccessAndRfreshToken = async (userId) => {
   }
 };
 
-// const transporter = nodermailer.createTransport({
-//   service: "gmail",
-//   auth: {
-//     user: process.env.MAILER_USER,
-//     pass: process.env.MAILER_PASS,
-//   },
-
-// });
-
-// let mailOptions = {
-//   from: process.env.MAILER_USER,
-//   to: "",   // The recipient's email address
-//   subject: 'Blog-AK Email Verification',
-//   text: `Click the link to verify your email: `,
-//   html: '<p>Click the link to verify your email: <a href="http://example.com/verify?token=uniqueToken">Verify Email</a></p>'
-// };
-
 const registerUser = asyncHandler(async (req, res) => {
-  //
+  console.log("Request Body:", req.body);
+
+  console.log("Request Files:", req.files);
+
   const { fullname, email, username, password } = req.body;
+
+  console.log("user data", fullname, email, username, password);
 
   if (!fullname || !email || !username || !password) {
     throw new ApiError(400, "all fields are required");
@@ -57,24 +45,26 @@ const registerUser = asyncHandler(async (req, res) => {
   if (existedUser) {
     throw new ApiError(400, "user with the email or username already exists");
   }
-  // const userPhotoLocalPath = req.files?.userPhoto[0]?.path;
+  const userPhotoLocalPath = req.files?.userPhoto[0]?.path;
 
-  // if (!avatarLocalPath) {
-  //   throw new ApiError(400, "Avatar file is required");
-  // }
+  if (!userPhotoLocalPath) {
+    throw new ApiError(400, "Avatar file is required");
+  }
 
-  // const userPhoto = await uploadOnCloudinary(userPhotoLocalPath);
+  const userPhoto = await uploadOnCloudinary(userPhotoLocalPath);
 
-  // if (!userPhoto) {
-  //   throw new ApiError(400, "avater photo required");
-  // }
+  console.log(userPhoto);
+
+  if (!userPhoto) {
+    throw new ApiError(400, "avater photo required");
+  }
 
   const user = await User.create({
     fullname,
     email,
     username: username.toLowerCase(),
     password,
-    // userPhoto: userPhoto,
+    userPhoto: userPhoto.url,
   });
 
   const { accessToken, refreshToken } = await generateAccessAndRfreshToken(

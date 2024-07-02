@@ -57,4 +57,31 @@ const getAllBlogs = asyncHandler(async (req, res) => {
   res.status(200).json({ user, blogs });
 });
 
-export { getAllBlogs, createBlog };
+const userBlogs = asyncHandler(async (req, res) => {
+  const userName = req.param.id;
+
+  if (!userName) {
+    throw new ApiError(400, "username required");
+  }
+
+  const user = await User.findOne({
+    username: userName,
+  });
+  if (!user) {
+    throw new ApiError(400, "user now found");
+  }
+
+  const currentUserBlogs = await Blog.find({
+    author: user._id,
+  });
+
+  if (!currentUserBlogs) {
+    throw new ApiError(400, "user blog not found");
+  }
+
+  // res.status(200).json({
+  //   data: userBlogs,
+  // });
+});
+
+export { getAllBlogs, createBlog, userBlogs };
