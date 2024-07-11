@@ -25,14 +25,8 @@ const generateAccessAndRfreshToken = async (userId) => {
   }
 };
 
-const registerUser = asyncHandler(async (req, res) => {
-  console.log("Request Body:", req.body);
-
-  console.log("Request Files:", req.files);
-
+const registerUser = asyncHandler(async (req, res, next) => {
   const { fullname, email, username, password } = req.body;
-
-  console.log("user data", fullname, email, username, password);
 
   if (!fullname || !email || !username || !password) {
     throw new ApiError(400, "all fields are required");
@@ -43,7 +37,16 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (existedUser) {
-    throw new ApiError(400, "user with the email or username already exists");
+    res
+      .status(400)
+      .json(
+        new ApiResponse(
+          400,
+          {},
+          "user with the email or username already exists"
+        )
+      );
+    // throw new ApiError(400, "user with the email or username already exists");
   }
   const userPhotoLocalPath = req.files?.userPhoto[0]?.path;
 
@@ -52,8 +55,6 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const userPhoto = await uploadOnCloudinary(userPhotoLocalPath);
-
-  console.log(userPhoto);
 
   if (!userPhoto) {
     throw new ApiError(400, "avater photo required");
@@ -72,9 +73,9 @@ const registerUser = asyncHandler(async (req, res) => {
   );
 
   const sendEmail = await sendVerificationEmail(user);
-
+  console.log(sendEmail);
   const createdUser = await User.findById(user._id).select(
-    "-password -refreshToken -verificationCode -verificationTokenExpires"
+    "-password -refreshToken -verificationCode -verificationTokenExpires -_id"
   );
 
   if (!createdUser) {
@@ -83,13 +84,15 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const options = {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production", // Ensure secure is only true in production
+    sameSite: "Strict", // Change to "None" if you need cross-site cookies
+    // domain: "http://localhost:8000/",
   };
 
   return res
-    .status(201)
     .cookie("accessToken", accessToken, options)
     .cookie("refreshToken", refreshToken, options)
+    .status(201)
     .json(new ApiResponse(200, createdUser, "user register successfully"));
 });
 
@@ -109,7 +112,6 @@ const verifyTheUser = asyncHandler(async (req, res) => {
   if (!code) {
     throw new ApiError(401, "account or code doesn't found");
   }
-  let verified;
 
   const user = await User.findById(_id);
 
@@ -117,11 +119,17 @@ const verifyTheUser = asyncHandler(async (req, res) => {
   const expiryTime = user.verificationTokenExpires;
 
   if (code != serverCode) {
-    throw new ApiError(400, "Code doen't matched, Try again");
+    return res
+      .status(400)
+      .json(new ApiResponse(400, {}, "Code didn't matched, Try again"));
   }
   const checkExpiryTime = Date.now() - expiryTime;
   if (checkExpiryTime > 0) {
-    throw new ApiError(400, "Time Expired Try again");
+    return res
+      .status(400)
+      .json(
+        new ApiResponse(400, { redirect: "signup" }, "Time Expired, Try again")
+      );
   }
 
   const updateVarificationInDB = await User.findByIdAndUpdate(
@@ -144,48 +152,69 @@ const verifyTheUser = asyncHandler(async (req, res) => {
 });
 
 const userLogin = asyncHandler(async (req, res) => {
-  const { email, username, password } = req.body;
+  const { email, password } = req.body;
 
   if (!email || !password) {
     throw new ApiError(400, "username or email and password is required");
   }
 
   const user = await User.findOne({
-    $or: [{ username }, { email }],
-  });
+    $or: [{ email }],
+  }).select(
+    "-refreshToken -verificationCode -verificationTokenExpires -updatedAt -blogs"
+  );
 
   if (!user) {
-    throw new ApiError(404, "user does not exist");
+    return res
+      .status(401)
+      .json(new ApiResponse(404, {}, "user does not exist"));
   }
 
   const isPasswordValid = await user.isPasswordCorrect(password);
 
   if (!isPasswordValid) {
-    throw new ApiError(401, "Invalid user credentials");
+    return res
+      .status(401)
+      .json(new ApiResponse(401, {}, "Invalid user credentials"));
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRfreshToken(
     user._id
   );
 
-  const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken -verificationCode -verificationTokenExpires"
-  );
+  user.refreshToken = refreshToken;
+  const loggedInUser = await user.save({ validateBeforeSave: false });
+
+  if (!loggedInUser.isVerified) {
+    await sendVerificationEmail(user);
+    return res
+      .status(406)
+      .json(
+        406,
+        { isVerified: user.isVerified },
+        "Please verify yourself And Check Your Email"
+      );
+  }
 
   const options = {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict",
   };
 
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", "", options)
+    .cookie("refreshToken", "", options)
     .json(
       new ApiResponse(
         200,
         {
-          user: loggedInUser,
+          email: user.email,
+          fullname: user.fullname,
+          isVerified: user.isVerified,
+          userphoto: user.userPhoto,
+          createdAt: user.createdAt,
           accessToken,
           refreshToken,
         },
