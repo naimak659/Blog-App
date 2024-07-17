@@ -123,9 +123,6 @@ const updateBlog = asyncHandler(async (req, res) => {
   const blogParam = req.params.id;
   const { title, text } = req.body;
   const coverImgPath = req.file?.coverImage[0]?.path;
-
-  
-
 });
 
 export { getAllBlogs, createBlog, userBlogs };
