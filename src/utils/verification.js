@@ -6,10 +6,7 @@ import { ApiError } from "./ApiError.js";
 dotenv.config();
 
 function generateVerificationCode(length) {
-  return crypto
-    .randomBytes(Math.ceil(length / 2))
-    .toString("hex")
-    .slice(0, length);
+  return (crypto.randomInt(0, 1000000) + "").padStart(6, "0");
 }
 
 async function sendVerificationEmail(user) {
@@ -23,7 +20,7 @@ async function sendVerificationEmail(user) {
   try {
     // Generate a verification token
     const verificationCode = generateVerificationCode(6);
-    user.verificationCode = verificationCode;
+    user.otp = verificationCode;
     user.verificationTokenExpires = Date.now() + 600000; // 10 min
 
     // Save the user with the verification token
@@ -47,9 +44,9 @@ async function sendVerificationEmail(user) {
     // Send the email
     const info = await transporter.sendMail(mailOptions);
 
-    console.log("email send", info);
+    // console.log("email send", info);
 
-    console.log("Verification email sent successfully.");
+    // console.log("Verification email sent successfully.");
     return info;
   } catch (error) {
     console.error("Error sending verification email:", error);

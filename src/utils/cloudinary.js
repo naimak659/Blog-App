@@ -15,12 +15,12 @@ const uploadOnCloudinary = async (localFilePath) => {
       resource_type: "auto",
       transformation: [
         { width: 500, crop: "scale" },
-        { quality: 35 },
-        { fetch_format: "auto" },
+        { quality: "auto:best" },
+        { fetch_format: "webp" },
       ],
     });
     // file has been uploaded successfull
-    //console.log("file is uploaded on cloudinary ", response.url);
+    console.log("file is uploaded on cloudinary ", response.url);
     fs.unlinkSync(localFilePath);
     return response;
   } catch (error) {
