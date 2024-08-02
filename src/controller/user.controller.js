@@ -6,9 +6,9 @@ import jwt from "jsonwebtoken";
 import { sendVerificationEmail } from "../utils/verification.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 
-const generateAccessAndRfreshToken = async (userId) => {
+const generateAccessAndRfreshToken = async (user) => {
   try {
-    const user = await User.findById(userId);
+    // const user = await User.findById(user._id);
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
@@ -26,7 +26,8 @@ const generateAccessAndRfreshToken = async (userId) => {
 };
 
 const registerUser = asyncHandler(async (req, res, next) => {
-  const { fullname, email, username, password } = req.body;
+  const { fullname, email, username, password, userPhoto } = req.body;
+  console.log(req.body);
 
   if (!fullname || !email || !username || !password) {
     throw new ApiError(400, "all fields are required");
@@ -48,13 +49,6 @@ const registerUser = asyncHandler(async (req, res, next) => {
       );
     // throw new ApiError(400, "user with the email or username already exists");
   }
-  const userPhotoLocalPath = req.files?.userPhoto[0]?.path;
-
-  if (!userPhotoLocalPath) {
-    throw new ApiError(400, "Avatar file is required");
-  }
-
-  const userPhoto = await uploadOnCloudinary(userPhotoLocalPath);
 
   if (!userPhoto) {
     throw new ApiError(400, "avater photo required");
@@ -65,15 +59,16 @@ const registerUser = asyncHandler(async (req, res, next) => {
     email,
     username: username.toLowerCase(),
     password,
-    userPhoto: userPhoto.url,
+    userPhoto,
   });
 
   const { accessToken, refreshToken } = await generateAccessAndRfreshToken(
-    user._id
+    user
   );
+  console.log(user);
 
   const sendEmail = await sendVerificationEmail(user);
-  console.log(sendEmail);
+
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken -verificationCode -verificationTokenExpires -_id"
   );
@@ -90,8 +85,8 @@ const registerUser = asyncHandler(async (req, res, next) => {
   };
 
   return res
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("blogAccessToken", accessToken, options)
+    .cookie("blogRefreshToken", refreshToken, options)
     .status(201)
     .json(new ApiResponse(200, createdUser, "user register successfully"));
 });
@@ -107,22 +102,17 @@ const verifyTheUser = asyncHandler(async (req, res) => {
    ** 7.
    */
 
-  const { _id } = req.user;
+  const user = req.user;
   const code = req.body.code;
   if (!code) {
     throw new ApiError(401, "account or code doesn't found");
   }
 
-  const user = await User.findById(_id);
+  // const user = await User.findById(_id);
 
-  const serverCode = user.verificationCode;
-  const expiryTime = user.verificationTokenExpires;
+  const serverCode = user.otp;
+  const expiryTime = user.verificationCodeExpires;
 
-  if (code != serverCode) {
-    return res
-      .status(400)
-      .json(new ApiResponse(400, {}, "Code didn't matched, Try again"));
-  }
   const checkExpiryTime = Date.now() - expiryTime;
   if (checkExpiryTime > 0) {
     return res
@@ -130,6 +120,12 @@ const verifyTheUser = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(400, { redirect: "signup" }, "Time Expired, Try again")
       );
+  }
+
+  if (code != serverCode) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, {}, "Code didn't matched, Try again"));
   }
 
   const updateVarificationInDB = await User.findByIdAndUpdate(
@@ -145,21 +141,39 @@ const verifyTheUser = asyncHandler(async (req, res) => {
   ).select(
     "-password -refreshToken -verificationCode -verificationTokenExpires"
   );
+  const { _id, username, fullname, email, userPhoto, isVerified } =
+    updateAccountDetails;
 
   return res.json(
-    new ApiResponse(202, updateVarificationInDB, "Email Verified Successfully")
+    new ApiResponse(
+      202,
+      {
+        _id,
+        username,
+        fullname,
+        email,
+        userPhoto,
+        isVerified,
+      },
+      "Email Verified Successfully"
+    )
   );
 });
 
 const userLogin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+  console.log(email, password);
 
   if (!email || !password) {
-    throw new ApiError(400, "username or email and password is required");
+    throw new ApiResponse(
+      400,
+      {},
+      "username or email and password is required"
+    );
   }
 
   const user = await User.findOne({
-    $or: [{ email }],
+    email,
   }).select(
     "-refreshToken -verificationCode -verificationTokenExpires -updatedAt -blogs"
   );
@@ -179,33 +193,36 @@ const userLogin = asyncHandler(async (req, res) => {
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRfreshToken(
-    user._id
+    user
   );
 
   user.refreshToken = refreshToken;
-  const loggedInUser = await user.save({ validateBeforeSave: false });
+  await user.save({ validateBeforeSave: false });
 
-  if (!loggedInUser.isVerified) {
+  if (!user.isVerified) {
     await sendVerificationEmail(user);
-    return res
-      .status(406)
+    console.log(user.isVerified);
+    res
+      .status(200)
       .json(
         406,
         { isVerified: user.isVerified },
         "Please verify yourself And Check Your Email"
       );
+    return;
   }
 
   const options = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Strict",
+    // secure: null,
+    secure: true,
+    sameSite: "Lax",
   };
 
   return res
     .status(200)
-    .cookie("accessToken", "", options)
-    .cookie("refreshToken", "", options)
+    .cookie("blogAccessToken", accessToken)
+    .cookie("blogRefreshToken", refreshToken)
     .json(
       new ApiResponse(
         200,
@@ -243,14 +260,14 @@ const userLogOut = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options)
+    .clearCookie("blogAccessToken", options)
+    .clearCookie("blogRefreshToken", options)
     .json(new ApiResponse(200, {}, "User logged Out"));
 });
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
-    req.cookies.refreshToken || req.body.refreshToken;
+    req.cookies.blogRefreshToken || req.body.blogRefreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "unauthorized request");
@@ -278,13 +295,13 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     };
 
     const { accessToken, refreshToken } = await generateAccessAndRfreshToken(
-      user._id
+      user
     );
 
     return res
       .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, options)
+      .cookie("blogAccessToken", accessToken, options)
+      .cookie("blogAccessToken", refreshToken, options)
       .json(
         new ApiResponse(
           200,
@@ -301,11 +318,12 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
-  const user = await User.findById(req.user?._id);
+  const user = req.user;
+  // const user = await User.findById(req.user?._id);
   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
 
   if (!isPasswordCorrect) {
-    throw new ApiError(400, "Invalid old password");
+    throw new ApiResponse(400, {}, "Invalid old password");
   }
 
   user.password = newPassword;
@@ -317,9 +335,23 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
-  return res
-    .status(200)
-    .json(new ApiResponse(200, req.user, "User fetched successfully"));
+  const { _id, email, fullname, username, isVerified, createdAt, userPhoto } =
+    req.user;
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        _id,
+        userPhoto,
+        email,
+        fullname,
+        username,
+        isVerified,
+        createdAt,
+      },
+      "User fetched successfully"
+    )
+  );
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {

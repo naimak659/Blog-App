@@ -15,6 +15,11 @@ const blogSchema = new Schema(
       type: String,
       required: true,
     },
+    isPublic: {
+      type: String,
+      required: true,
+      default: true,
+    },
     coverImage: {
       type: String,
     },

@@ -26,7 +26,7 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
-    verificationCode: {
+    otp: {
       type: String,
     },
     verificationCodeExpires: {
@@ -57,7 +57,6 @@ userSchema.pre("save", async function (next) {
 
 userSchema.methods.isPasswordCorrect = async function (password) {
   try {
-    console.log(this.password);
     const isMatch = await bcrypt.compare(password, this.password);
     if (isMatch) {
       return true;

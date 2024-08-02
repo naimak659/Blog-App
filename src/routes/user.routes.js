@@ -18,14 +18,14 @@ router.route("/register").post(
   upload.fields([
     {
       maxCount: 1,
-      name: "userPhoto"
+      name: "userPhoto",
     },
   ]),
   registerUser
 );
 router.route("/verification").post(verifyJWT, verifyTheUser);
 router.route("/login").post(userLogin);
-router.route("/logout").post(verifyJWT, userLogOut);
+router.route("/logout").get(verifyJWT, userLogOut);
 router.route("/chagePassword").post(verifyJWT, changeCurrentPassword);
 router.route("/user").get(verifyJWT, getCurrentUser);
 router.route("/update").post(verifyJWT, updateAccountDetails);

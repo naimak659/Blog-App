@@ -4,12 +4,14 @@ import {
   createBlog,
   userBlogs,
   getAllBlogs,
+  viewBlogById,
+  updateBlog,
 } from "../controller/blog.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router();
 
-router.route("/api/blogs").post(verifyJWT, getAllBlogs);
+router.route("/api/blogs").get(getAllBlogs);
 router
   .route("/api/post")
   .post(
@@ -17,13 +19,14 @@ router
     verifyJWT,
     createBlog
   );
-router.route("/api/user/:id").post(verifyJWT, userBlogs);
+router.route("/api/blog/:id").get(viewBlogById);
+router.route("/api/user/:id").get(userBlogs);
 router
   .route("/api/updateBlog/:id")
-  .post(
+  .put(
     verifyJWT,
     upload.fields([{ maxCount: 1, name: "coverImage" }]),
-    userBlogs
+    updateBlog
   );
 
 export default router;
